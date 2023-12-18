@@ -1,4 +1,3 @@
-import asyncio
 import httpx
 import pytest
 from unittest import mock
@@ -15,7 +14,7 @@ class TestDocuments:
             await typesense.collections[created["name"]].delete()
 
     async def test_document_get_not_exists(self, typesense):
-        doc = await typesense.collections["fruits"].documents["doc_id"].retrieve()
+        doc = await typesense.collections["fruits"].documents["B"].retrieve()
         assert doc is None
 
     async def test_document_get(self, typesense):
@@ -25,10 +24,12 @@ class TestDocuments:
             "timestamp": 23452345,
             "color": "red",
         }
-        created = await typesense.collections["fruits"].documents.create(doc)
+        collection = typesense.collections["fruits"]
+
+        created = await collection.documents.create(doc)
         assert created == doc
 
-        fetched = await typesense.collections["fruits"].documents["A"].retrieve()
+        fetched = await collection.documents["A"].retrieve()
         assert fetched == doc
 
     async def test_document_delete(self, typesense):

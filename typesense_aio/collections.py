@@ -1,7 +1,5 @@
-import json
 import httpx
-from typing import Dict, Optional, Generic, TypeVar, TypedDict
-
+from typing import Dict, Optional, Generic, TypeVar
 from .requester import Requester
 from .documents import Documents
 from .types import CollectionDict

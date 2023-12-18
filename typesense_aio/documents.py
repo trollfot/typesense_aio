@@ -137,7 +137,11 @@ class Documents(Generic[T]):
     ) -> SearchResponse[T]:
         params = {
             "q": q,
-            "query_by": ",".join(query_by) if isinstance(query_by, list) else query_by,
+            "query_by": (
+                ",".join(query_by)
+                if isinstance(query_by, list)
+                else query_by
+            ),
             "query_by_weights": (
                 ",".join(query_by_weights)
                 if isinstance(query_by_weights, list)

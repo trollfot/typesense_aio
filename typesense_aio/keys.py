@@ -34,7 +34,8 @@ class Keys:
         return await self.requester.post(self.endpoint, data=schema)
 
     def generate_scoped_search_key(self, search_key, parameters):
-        # Note: only a key generated with the `documents:search` action will be accepted by the server
+        # Note: only a key generated with the `documents:search`
+        # action will be accepted by the server
         params_str = orjson.dumps(parameters)
         digest = base64.b64encode(
             hmac.new(

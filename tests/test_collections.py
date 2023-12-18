@@ -28,9 +28,8 @@ class TestCollections:
         with mock.patch.object(collection_obj.requester, "request") as mockreq:
             mockreq.side_effect = ValueError("error")
 
-            with pytest.raises(ValueError) as exc:
+            with pytest.raises(ValueError):
                 await collection_obj.retrieve()
-
 
         with mock.patch.object(collection_obj.requester, "request") as mockreq:
             httpx_response_mock = mock.Mock()
@@ -39,7 +38,7 @@ class TestCollections:
                 "msg", request=mock.Mock(), response=httpx_response_mock
             )
 
-            with pytest.raises(httpx.HTTPStatusError) as exc:
+            with pytest.raises(httpx.HTTPStatusError):
                 await collection_obj.retrieve()
 
     async def test_collections_create(self, typesense, collection_schema):

@@ -1,6 +1,5 @@
 import httpx
 import orjson
-from typing import List, NamedTuple
 from .config import Configuration
 
 
@@ -20,12 +19,12 @@ class Requester:
         return self.config.urls[0]
 
     async def request(self,
-                       method: str,
-                       endpoint: str,
-                       *,
-                       data=None,
-                       params=None,
-                       headers: dict | None =None):
+                      method: str,
+                      endpoint: str,
+                      *,
+                      data=None,
+                      params=None,
+                      headers: dict | None = None):
         node = await self.get_node()
         url = f"{node}/{endpoint.strip('/')}"
         headers = (headers or {}) | self.headers
@@ -66,7 +65,7 @@ class Requester:
                    data=None,
                    params=None,
                    headers: dict | None = None,
-                  as_json: bool = True):
+                   as_json: bool = True):
         response = await self.request(
             'POST', endpoint, params=params, data=data, headers=headers)
         response.raise_for_status()
@@ -94,7 +93,7 @@ class Requester:
                     data=None,
                     params=None,
                     headers: dict | None = None,
-                  as_json: bool = True):
+                    as_json: bool = True):
         response = await self.request(
             'PATCH', endpoint, params=params, data=data, headers=headers)
         response.raise_for_status()
@@ -107,7 +106,7 @@ class Requester:
                      *,
                      params=None,
                      headers: dict | None = None,
-                  as_json: bool = True):
+                     as_json: bool = True):
         response = await self.request(
             'DELETE', endpoint, params=params, headers=headers)
         response.raise_for_status()
