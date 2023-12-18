@@ -36,16 +36,20 @@ class Keys:
     def generate_scoped_search_key(self, search_key, parameters):
         # Note: only a key generated with the `documents:search`
         # action will be accepted by the server
-        params_str = orjson.dumps(parameters)
+        params = orjson.dumps(parameters)
         digest = base64.b64encode(
             hmac.new(
                 search_key.encode('utf-8'),
-                params_str.encode('utf-8'),
+                params,
                 digestmod=hashlib.sha256
             ).digest()
         )
         key_prefix = search_key[0:4]
-        raw_scoped_key = f"{digest.decode('utf-8')}{key_prefix}{params_str}"
+        raw_scoped_key = '{}{}{}'.format(
+            digest.decode('utf-8'),
+            key_prefix,
+            params.decode('utf-8')
+        )
         return base64.b64encode(raw_scoped_key.encode('utf-8'))
 
     async def retrieve(self):

@@ -1,4 +1,6 @@
 import pytest
+import httpx
+from typesense_aio.client import Client
 from typesense_aio.collections import Collection
 from typing import List, TypedDict
 
@@ -91,3 +93,61 @@ class TestSearch:
         assert len(result["facet_counts"]) == 1
         assert len(result["facet_counts"][0]["counts"]) == 3
         assert result["found"] == 7
+
+
+class TestKeySearch:
+
+    @pytest.fixture(autouse=True)
+    async def documents(self, typesense, collection_schema):
+        try:
+            created = await typesense.collections.create(collection_schema)
+            await typesense.collections["fruits"].documents.create_many(
+                testing_documents
+            )
+            yield
+        finally:
+            await typesense.collections[created["name"]].delete()
+
+    async def test_key_wrong_actions(self, typesense, configuration):
+        response = await typesense.keys.create({
+            "description": "Create fruits",
+            "actions": ["documents:create", "documents:search"],
+            "collections": ["*"]
+        })
+        master_key = response["value"]
+        client = Client(configuration._replace(api_key=master_key))
+        results = await client.collections["fruits"].documents.search(
+            q="*", query_by=["name"]
+        )
+        assert results["found"] == 7
+
+        scoped_key = typesense.keys.generate_scoped_search_key(
+            master_key, {
+                "filter_by": "color:=red",
+            }
+        )
+        client = Client(configuration._replace(api_key=scoped_key))
+        # Scoped keys only work with "documents:search"
+        with pytest.raises(httpx.HTTPError):
+            await client.collections["fruits"].documents.search(
+                q="*", query_by="name"
+            )
+
+    async def test_keys_scoped_key(self, typesense, configuration):
+        response = await typesense.keys.create({
+            "description": "Search fruits",
+            "actions": ["documents:search"],
+            "collections": ["fruits"]
+        })
+        master_key = response["value"]
+        scoped_key = typesense.keys.generate_scoped_search_key(
+            master_key, {
+                "filter_by": "color:red",
+                "query_by": "name"
+            }
+        )
+        client = Client(configuration._replace(api_key=scoped_key))
+        results = await client.collections["fruits"].documents.search(
+            q="*"
+        )
+        assert results["found"] == 3

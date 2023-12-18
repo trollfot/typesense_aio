@@ -109,7 +109,7 @@ class Documents(Generic[T]):
     async def search(
         self,
         q: Union[str, Literal["*"]],
-        query_by: Union[List[str], str],
+        query_by: Union[List[str], str] = None,
         query_by_weights: Union[List[int], str] = None,
         max_hits: Union[int, Literal["all"]] = None,
         prefix: bool = None,
