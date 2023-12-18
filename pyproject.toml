@@ -21,17 +21,16 @@ classifiers = [
 requires-python = ">=3.9"
 dependencies = [
     "httpx >= 0.25.0",
-    "orjson",
+    "orjson"
 ]
 
 [project.optional-dependencies]
 test = [
+     "alt-pytest-asyncio",
      "docker >= 4.4.1",
-     "black >= 20.8b1",
-     "codecov >= 2.1.11",
-     "pytest",
      "pyhamcrest",
-     "alt-pytest-asyncio"
+     "pytest",
+     "pytest-cov"
 ]
 
 [tool.setuptools.packages.find]
