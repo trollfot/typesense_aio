@@ -6,7 +6,7 @@ class Node(str):
     url: ParseResult
     healthy: bool = True
 
-    def __new__(cls, value: str | Node):
+    def __new__(cls, value: str | 'Node'):
         # idempotency
         if isinstance(value, Node):
             return value

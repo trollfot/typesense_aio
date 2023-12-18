@@ -1,6 +1,7 @@
 import hmac
 import base64
 import hashlib
+import orjson
 
 
 class Key:
@@ -34,7 +35,7 @@ class Keys:
 
     def generate_scoped_search_key(self, search_key, parameters):
         # Note: only a key generated with the `documents:search` action will be accepted by the server
-        params_str = json.dumps(parameters)
+        params_str = orjson.dumps(parameters)
         digest = base64.b64encode(
             hmac.new(
                 search_key.encode('utf-8'),
