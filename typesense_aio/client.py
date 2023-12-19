@@ -3,6 +3,7 @@ from .keys import Keys
 from .collections import Collections
 from .config import Configuration
 from .requester import Requester
+from .multisearch import MultiSearch
 
 
 class Client:
@@ -12,3 +13,4 @@ class Client:
         self.health: Health = Health(requester)
         self.collections: Collections = Collections(requester)
         self.keys: Keys = Keys(requester)
+        self.multi_search = MultiSearch(requester)

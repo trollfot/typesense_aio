@@ -68,7 +68,11 @@ class Requester:
                    as_json: bool = True):
         response = await self.request(
             'POST', endpoint, params=params, data=data, headers=headers)
-        response.raise_for_status()
+        try:
+            response.raise_for_status()
+        except:
+            import pdb
+            pdb.set_trace()
         if as_json:
             return self.decoder(response.content)
         return response.content
