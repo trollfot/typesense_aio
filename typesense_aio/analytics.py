@@ -3,7 +3,7 @@ from .requester import Requester
 
 class AnalyticsRule:
 
-    def __init__(self, requester: Request, rule_id: str):
+    def __init__(self, requester: Requester, rule_id: str):
         self.requester = requester
         self.rule_id = rule_id
         self.endpoint = f"/analytics/rules/{rule_id}"
@@ -22,7 +22,7 @@ class AnalyticsRules:
 
     self.endpoint: str = '/analytics/rules'
 
-    def __init__(self, requester: Request):
+    def __init__(self, requester: Requester):
         self.requester = requester
         self.rules = {}
 
@@ -42,5 +42,5 @@ class AnalyticsRules:
 
 class Analytics:
 
-    def __init__(self, requester: Request):
+    def __init__(self, requester: Requester):
         self.rules = AnalyticsRules(requester)

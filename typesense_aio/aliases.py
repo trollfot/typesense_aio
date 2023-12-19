@@ -3,7 +3,7 @@ from .requester import Requester
 
 class Alias:
 
-    def __init__(self, requester: Request, name: str):
+    def __init__(self, requester: Requester, name: str):
         self.requester = requester
         self.name = name
         self.endpoint: str = f'/aliases/{name}'
@@ -22,7 +22,7 @@ class Aliases:
 
     endpoint: str = '/aliases'
 
-    def __init__(self, requester: Request):
+    def __init__(self, requester: Requester):
         self.requester = requester
         self.aliases = {}
 
