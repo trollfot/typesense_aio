@@ -20,7 +20,7 @@ class AnalyticsRule:
 
 class AnalyticsRules:
 
-    self.endpoint: str = '/analytics/rules'
+    endpoint: str = '/analytics/rules'
 
     def __init__(self, requester: Requester):
         self.requester = requester
