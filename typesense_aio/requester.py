@@ -41,7 +41,7 @@ class Requester:
                 content=data,
                 headers=headers,
                 params=params,
-                timeout=2
+                timeout=3
 
             )
         return response
@@ -68,11 +68,7 @@ class Requester:
                    as_json: bool = True):
         response = await self.request(
             'POST', endpoint, params=params, data=data, headers=headers)
-        try:
-            response.raise_for_status()
-        except:
-            import pdb
-            pdb.set_trace()
+        response.raise_for_status()
         if as_json:
             return self.decoder(response.content)
         return response.content
