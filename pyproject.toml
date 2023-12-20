@@ -21,7 +21,8 @@ classifiers = [
 requires-python = ">=3.9"
 dependencies = [
     "httpx >= 0.25.0",
-    "orjson"
+    "orjson",
+    "the-retry"
 ]
 
 [project.optional-dependencies]

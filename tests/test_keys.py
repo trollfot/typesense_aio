@@ -1,13 +1,13 @@
 import pytest
-import httpx
 import hamcrest
+from typesense_aio.exc import ObjectNotFound
 
 
 class TestKeys:
 
     async def test_key_get_not_exists(self, typesense):
-        with pytest.raises(httpx.HTTPStatusError):
-            await typesense.keys[1].retrieve()
+        found = await typesense.keys[1].retrieve()
+        assert found is None
 
     async def test_keys_get_all_empty(self, typesense):
         all_keys = await typesense.keys.retrieve()

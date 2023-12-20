@@ -2,6 +2,7 @@ import uuid
 import socket
 import pytest
 import docker
+import httpx
 from contextlib import closing
 from typing import List
 from docker.models.containers import Container
@@ -103,7 +104,21 @@ async def typesense(configuration, api_key, service_port, tmpdir_factory):
         container = start_container(
             datadir, api_key=api_key, port=service_port)
         client = Client(configuration)
-        await client.health.wait()
+
+        async with httpx.AsyncClient() as http_client:
+            ok = False
+            while not ok:
+                response = await http_client.request(
+                    'GET',
+                    configuration.urls[0] + '/health',
+                    timeout=1
+                )
+                if response.status_code == 200:
+                    ok = True
+                elif response.status_code == 503:
+                    continue
+                else:
+                    response.raise_for_status()
         yield client
     finally:
         container.kill()

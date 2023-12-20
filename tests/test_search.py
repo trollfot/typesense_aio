@@ -1,7 +1,7 @@
 import pytest
-import httpx
 from typesense_aio.client import Client
 from typesense_aio.collections import Collection
+from typesense_aio.exc import RequestUnauthorized
 from typing import List, TypedDict
 
 
@@ -128,7 +128,7 @@ class TestKeySearch:
         )
         client = Client(configuration._replace(api_key=scoped_key))
         # Scoped keys only work with "documents:search"
-        with pytest.raises(httpx.HTTPError):
+        with pytest.raises(RequestUnauthorized):
             await client.collections["fruits"].documents.search(
                 q="*", query_by="name"
             )
