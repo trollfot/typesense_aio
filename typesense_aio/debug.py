@@ -1,13 +1,12 @@
-import httpx
-from asyncio import sleep
 from .requester import Requester
 
 
-class Health:
-    endpoint: str = "/health"
+class Debug:
+
+    endpoint: str = "/debug"
 
     def __init__(self, requester: Requester):
         self.requester = requester
 
-    async def check(self) -> bool:
+    async def retrieve(self):
         return await self.requester.get(self.endpoint)

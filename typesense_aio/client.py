@@ -6,6 +6,8 @@ from .requester import Requester
 from .multisearch import MultiSearch
 from .aliases import Aliases
 from .analytics import Analytics
+from .debug import Debug
+from .nodes import Nodes
 
 
 class Client:
@@ -16,5 +18,6 @@ class Client:
         self.analytics: Analytics = Analytics(requester)
         self.collections: Collections = Collections(requester)
         self.health: Health = Health(requester)
+        self.debug: Debug = Debug(requester)
         self.keys: Keys = Keys(requester)
         self.multi_search: MultiSearch = MultiSearch(requester)

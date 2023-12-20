@@ -1,6 +1,10 @@
 import httpx
 import orjson
 from .config import Configuration
+from .nodes import Nodes, Node
+from .exc import resolve_exception, service_exceptions
+from contextlib import asynccontextmanager
+from the_retry import retry
 
 
 class Requester:
@@ -14,9 +18,31 @@ class Requester:
             headers = {}
         headers["X-TYPESENSE-API-KEY"] = self.config.api_key
         self.headers = headers
+        self.nodes = Nodes(config.urls)
+        self.request_with_retry = retry(
+            expected_exception=service_exceptions,
+            attempts=config.retries,
+            backoff=config.retry_interval
+        )(self.request)
 
-    async def get_node(self):
-        return self.config.urls[0]
+    def get_node(self) -> Node | None:
+        if self.nodes:
+            return next(iter(self.nodes))
+
+    async def check_quarantined_node(self):
+        responding = set()
+        while self.quarantined:
+            item = self.quarantined.pop()
+            try:
+                health = await self.request.get('/health')
+                if health == {"ok": True}:
+                    node.healthy = True
+                    responding.add(node)
+            except:
+                pass
+
+        for valid in responding:
+            self.nodes.restore(valid)
 
     async def request(self,
                       method: str,
@@ -25,7 +51,11 @@ class Requester:
                       data=None,
                       params=None,
                       headers: dict | None = None):
-        node = await self.get_node()
+
+        node = self.get_node()
+        if node is None:
+            raise LookupError('No valid nodes.')
+
         url = f"{node}/{endpoint.strip('/')}"
         headers = (headers or {}) | self.headers
 
@@ -41,9 +71,14 @@ class Requester:
                 content=data,
                 headers=headers,
                 params=params,
-                timeout=3
-
+                timeout=self.config.timeout
             )
+        if not 200 <= response.status_code < 300:
+            error_message = response.content
+            error = resolve_exception(response.status_code)
+            self.nodes.quarantine(node)
+            raise error(error_message)
+
         return response
 
     async def get(self,
@@ -52,9 +87,12 @@ class Requester:
                   params=None,
                   headers: dict | None = None,
                   as_json: bool = True):
-        response = await self.request(
-            'GET', endpoint, params=params, headers=headers)
-        response.raise_for_status()
+        response = await self.request_with_retry(
+            'GET',
+            endpoint,
+            params=params,
+            headers=headers
+        )
         if as_json:
             return self.decoder(response.content)
         return response.content
@@ -66,9 +104,13 @@ class Requester:
                    params=None,
                    headers: dict | None = None,
                    as_json: bool = True):
-        response = await self.request(
-            'POST', endpoint, params=params, data=data, headers=headers)
-        response.raise_for_status()
+        response = await self.request_with_retry(
+            'POST',
+            endpoint,
+            params=params,
+            data=data,
+            headers=headers
+        )
         if as_json:
             return self.decoder(response.content)
         return response.content
@@ -80,9 +122,13 @@ class Requester:
                   params=None,
                   headers: dict | None = None,
                   as_json: bool = True):
-        response = await self.request(
-            'PUT', endpoint, params=params, data=data, headers=headers)
-        response.raise_for_status()
+        response = await self.request_with_retry(
+            'PUT',
+            endpoint,
+            params=params,
+            data=data,
+            headers=headers
+        )
         if as_json:
             return self.decoder(response.content)
         return response.content
@@ -94,9 +140,13 @@ class Requester:
                     params=None,
                     headers: dict | None = None,
                     as_json: bool = True):
-        response = await self.request(
-            'PATCH', endpoint, params=params, data=data, headers=headers)
-        response.raise_for_status()
+        response = await self.request_with_retry(
+            'PATCH',
+            endpoint,
+            params=params,
+            data=data,
+            headers=headers
+        )
         if as_json:
             return self.decoder(response.content)
         return response.content
@@ -107,9 +157,12 @@ class Requester:
                      params=None,
                      headers: dict | None = None,
                      as_json: bool = True):
-        response = await self.request(
-            'DELETE', endpoint, params=params, headers=headers)
-        response.raise_for_status()
+        response = await self.request_with_retry(
+            'DELETE',
+            endpoint,
+            params=params,
+            headers=headers
+        )
         if as_json:
             return self.decoder(response.content)
         return response.content
