@@ -35,7 +35,7 @@ class Requester:
     async def check_quarantined_node(self):
         responding = set()
         while self.quarantined:
-            item = self.quarantined.pop()
+            node = self.quarantined.pop()
             try:
                 health = await self.request.get('/health')
                 if health == {"ok": True}:
