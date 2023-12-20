@@ -1,10 +1,13 @@
 import httpx
 import orjson
+from the_retry import retry
 from .config import Configuration
 from .nodes import Nodes, Node
-from .exc import resolve_exception, service_exceptions
-from contextlib import asynccontextmanager
-from the_retry import retry
+from .exc import (
+    resolve_exception,
+    service_exceptions,
+    ObjectNotFound,
+)
 
 
 class Requester:
@@ -19,11 +22,11 @@ class Requester:
         headers["X-TYPESENSE-API-KEY"] = self.config.api_key
         self.headers = headers
         self.nodes = Nodes(config.urls)
-        self.request_with_retry = retry(
+        self.request = retry(
             expected_exception=service_exceptions,
             attempts=config.retries,
             backoff=config.retry_interval
-        )(self.request)
+        )(self._request)
 
     def get_node(self) -> Node | None:
         if self.nodes:
@@ -44,7 +47,7 @@ class Requester:
         for valid in responding:
             self.nodes.restore(valid)
 
-    async def request(self,
+    async def _request(self,
                       method: str,
                       endpoint: str,
                       *,
@@ -73,10 +76,12 @@ class Requester:
                 params=params,
                 timeout=self.config.timeout
             )
+
         if not 200 <= response.status_code < 300:
             error_message = response.content
             error = resolve_exception(response.status_code)
-            self.nodes.quarantine(node)
+            if error in service_exceptions:
+                self.nodes.quarantine(node)
             raise error(error_message)
 
         return response
@@ -87,12 +92,15 @@ class Requester:
                   params=None,
                   headers: dict | None = None,
                   as_json: bool = True):
-        response = await self.request_with_retry(
-            'GET',
-            endpoint,
-            params=params,
-            headers=headers
-        )
+        try:
+            response = await self.request(
+                'GET',
+                endpoint,
+                params=params,
+                headers=headers
+            )
+        except ObjectNotFound:
+            return None
         if as_json:
             return self.decoder(response.content)
         return response.content
@@ -104,7 +112,7 @@ class Requester:
                    params=None,
                    headers: dict | None = None,
                    as_json: bool = True):
-        response = await self.request_with_retry(
+        response = await self.request(
             'POST',
             endpoint,
             params=params,
@@ -122,7 +130,7 @@ class Requester:
                   params=None,
                   headers: dict | None = None,
                   as_json: bool = True):
-        response = await self.request_with_retry(
+        response = await self.request(
             'PUT',
             endpoint,
             params=params,
@@ -140,7 +148,7 @@ class Requester:
                     params=None,
                     headers: dict | None = None,
                     as_json: bool = True):
-        response = await self.request_with_retry(
+        response = await self.request(
             'PATCH',
             endpoint,
             params=params,
@@ -157,7 +165,7 @@ class Requester:
                      params=None,
                      headers: dict | None = None,
                      as_json: bool = True):
-        response = await self.request_with_retry(
+        response = await self.request(
             'DELETE',
             endpoint,
             params=params,
