@@ -4,7 +4,6 @@ import pytest
 import docker
 import httpx
 from contextlib import closing
-from typing import List
 from docker.models.containers import Container
 from typesense_aio.client import Client
 from typesense_aio.config import Configuration
