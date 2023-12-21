@@ -124,12 +124,3 @@ async def typesense(configuration, api_key, service_port, tmpdir_factory):
         container.kill()
         container.remove()
         container.client.close()
-
-
-@pytest.fixture(scope="function", autouse=True)
-async def collections(typesense):
-    yield
-    collections: List[dict] = await typesense.collections.retrieve()
-    if collections:
-        for collection in collections:
-            await typesense.collections[collection["name"]].delete()

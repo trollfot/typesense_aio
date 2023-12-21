@@ -6,6 +6,14 @@ from unittest import mock
 
 class TestCollections:
 
+    @pytest.fixture(scope="function", autouse=True)
+    async def collections(self, typesense):
+        yield
+        collections: List[dict] = await typesense.collections.retrieve()
+        if collections:
+            for collection in collections:
+                await typesense.collections[collection["name"]].delete()
+
     async def test_collection_get_not_exists(self, typesense):
         collection = await typesense.collections["fruits"].retrieve()
         assert collection is None

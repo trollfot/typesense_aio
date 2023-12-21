@@ -9,14 +9,28 @@ class Node(str):
     url: ParseResult
     healthy: bool = True
 
-    def __eq__(self, other: 'Node'):
+    def __eq__(self, other: Union['Node', str]):
         if isinstance(other, Node):
             return (self.url == other.url and self.healthy == other.healthy)
+
+        if isinstance(other, str):
+            return super().__eq__(other)
+
         raise NotImplementedError(
             f'Cannot compare a `Node` and {other.__class__!r}.')
 
+    def __ne__(self, other: Union['Node', str]):
+        return not self.__eq__(other)
+
+    def __bool__(self):
+        return self.healthy
+
     def __hash__(self):
         return hash(self.url)
+
+    def __repr__(self):
+        url = super().__repr__()
+        return f'<Node {url} status={self.healthy and "OK" or "KO"}>'
 
     def __new__(cls, value: Union[str, 'Node']):
         # idempotency
