@@ -235,3 +235,4 @@ async def test_requester_quarantine_task(api_key, respx_mock):
     )
     await asyncio.sleep(2)
     assert len(requester.nodes.quarantined) == 1
+    task.cancel()
