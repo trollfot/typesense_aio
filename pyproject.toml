@@ -1,3 +1,4 @@
+
 [project]
 name = "typesense_aio"
 version = "0.1.0"
@@ -31,7 +32,8 @@ test = [
      "docker >= 4.4.1",
      "pyhamcrest",
      "pytest",
-     "pytest-cov"
+     "pytest-cov",
+     "respx",
 ]
 
 [tool.setuptools.packages.find]

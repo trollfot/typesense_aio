@@ -1,3 +1,4 @@
+import asyncio
 import httpx
 import orjson
 from the_retry import retry
@@ -32,20 +33,42 @@ class Requester:
         if self.nodes:
             return next(iter(self.nodes))
 
-    async def check_quarantined_node(self):
-        responding = set()
-        while self.quarantined:
-            node = self.quarantined.pop()
-            try:
-                health = await self.request.get('/health')
-                if health == {"ok": True}:
-                    node.healthy = True
-                    responding.add(node)
-            except:
-                pass
+    async def check_quarantined_node(self, node: Node):
 
-        for valid in responding:
-            self.nodes.restore(valid)
+        if node.healthy:
+            return node
+
+        http_client: httpx.AsyncClient
+        async with httpx.AsyncClient() as http_client:
+            response: httpx.Response = await http_client.request(
+                'GET',
+                f'{node}/health',
+                timeout=self.config.timeout
+            )
+        try:
+            response.raise_for_status()
+        except httpx.HTTPError:
+            return
+        health = self.decoder(response.content)
+        if health == {"ok": True}:
+            return node
+        return
+
+    async def check_quarantined_nodes(self):
+        tasks = [
+            self.check_quarantined_node(node)
+            for node in self.nodes.quarantined
+        ]
+        valid_nodes = await asyncio.gather(*tasks)
+        for node in valid_nodes:
+            if node is not None:
+                self.nodes.restore(node)
+
+    async def quarantine_guard(self):
+        while True:
+            if self.nodes.quarantined:
+                await self.check_quarantined_nodes()
+            await asyncio.sleep(self.config.healthcheck_interval)
 
     async def _request(self,
                       method: str,
@@ -67,23 +90,26 @@ class Requester:
             data = self.encoder(data)
 
         http_client: httpx.AsyncClient
-        async with httpx.AsyncClient() as http_client:
-            response: httpx.Response = await http_client.request(
-                method,
-                url,
-                content=data,
-                headers=headers,
-                params=params,
-                timeout=self.config.timeout
-            )
-
-        if not 200 <= response.status_code < 300:
-            error_message = response.content
-            error = resolve_exception(response.status_code)
-            if error in service_exceptions:
-                self.nodes.quarantine(node)
-            raise error(error_message)
-
+        try:
+            async with httpx.AsyncClient() as http_client:
+                response: httpx.Response = await http_client.request(
+                    method,
+                    url,
+                    content=data,
+                    headers=headers,
+                    params=params,
+                    timeout=self.config.timeout
+                )
+        except httpx.RequestError:
+            self.nodes.quarantine(node)
+            raise
+        else:
+            if not 200 <= response.status_code < 300:
+                error_message = response.content
+                error = resolve_exception(response.status_code)
+                if error in service_exceptions:
+                    self.nodes.quarantine(node)
+                raise error(error_message)
         return response
 
     async def get(self,

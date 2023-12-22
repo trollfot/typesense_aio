@@ -1,5 +1,17 @@
 import pytest
+import httpx
+import asyncio
 from typesense_aio.nodes import Node, Nodes
+from typesense_aio.requester import Requester
+from typesense_aio.config import Configuration
+
+
+bad_response = httpx.Response(500)
+good_response = httpx.Response(
+    200,
+    content=b'{"ok": true}',
+    headers={'Content-Type': "application/json"}
+)
 
 
 def test_node_repr():
@@ -110,3 +122,116 @@ def test_nodes_quarantine_intruder():
 
     with pytest.raises(LookupError):
         nodes.restore(sneaky_node)
+
+
+async def test_requester_bad_nodes_quarantine(api_key, respx_mock):
+
+    respx_mock.get("http://example.com:12345/health").mock(
+        return_value=bad_response
+    )
+    respx_mock.get("http://test.com:80/indexer/health").mock(
+        return_value=bad_response
+    )
+
+    config = Configuration(
+        urls=[
+            "http://test.com:80/indexer",
+            "http://example.com:12345/",
+        ],
+        api_key=api_key,
+        timeout=0.5
+    )
+    requester = Requester(config)
+    assert len(requester.nodes) == 2
+    assert requester.get_node() in (
+        "http://test.com:80/indexer",
+        "http://example.com:12345"
+    )
+
+    # all nodes are bad.
+    with pytest.raises(LookupError):
+        await requester.get('/health')
+
+    assert requester.get_node() is None
+    assert len(requester.nodes.quarantined) == 2
+
+
+async def test_requester_quarantine_restore(api_key, respx_mock):
+
+    respx_mock.get("http://example.com:12345/health").mock(
+        return_value=bad_response
+    )
+    respx_mock.get("http://test.com:80/indexer/health").mock(
+        return_value=bad_response
+    )
+
+    config = Configuration(
+        urls=[
+            "http://test.com:80/indexer",
+            "http://example.com:12345/",
+        ],
+        api_key=api_key,
+        timeout=0.5
+    )
+    requester = Requester(config)
+
+    # all nodes are bad.
+    with pytest.raises(LookupError):
+        await requester.get('/health')
+
+    # We run the checks. Nothing changed.
+    await requester.check_quarantined_nodes()
+    assert len(requester.nodes) == 0
+    assert len(requester.nodes.quarantined) == 2
+
+    # We make one node respond correctly
+    respx_mock.get("http://example.com:12345/health").mock(
+        return_value=good_response
+    )
+
+    # We run the checks. One node was released from jail.
+    await requester.check_quarantined_nodes()
+    assert len(requester.nodes.quarantined) == 1
+    assert len(requester.nodes) == 1
+    assert requester.nodes.quarantined.pop() == (
+        "http://test.com:80/indexer"
+    )
+    assert requester.nodes.pool.pop() == (
+        "http://example.com:12345"
+    )
+
+
+async def test_requester_quarantine_task(api_key, respx_mock):
+
+    respx_mock.get("http://example.com:12345/health").mock(
+        return_value=bad_response
+    )
+    respx_mock.get("http://test.com:80/indexer/health").mock(
+        return_value=bad_response
+    )
+
+    config = Configuration(
+        urls=[
+            "http://test.com:80/indexer",
+            "http://example.com:12345/",
+        ],
+        api_key=api_key,
+        timeout=0.5,
+        healthcheck_interval=1
+    )
+    requester = Requester(config)
+
+    # schedule the healthcheck.
+    task = asyncio.create_task(requester.quarantine_guard())
+
+    # all nodes are bad.
+    with pytest.raises(LookupError):
+        await requester.get('/health')
+
+    assert len(requester.nodes.quarantined) == 2
+
+    respx_mock.get("http://example.com:12345/health").mock(
+        return_value=good_response
+    )
+    await asyncio.sleep(2)
+    assert len(requester.nodes.quarantined) == 1

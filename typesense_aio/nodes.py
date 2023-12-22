@@ -14,7 +14,8 @@ class Node(str):
             return (self.url == other.url and self.healthy == other.healthy)
 
         if isinstance(other, str):
-            return super().__eq__(other)
+            url = urlparse(other.rstrip('/'))
+            return self.url == url
 
         raise NotImplementedError(
             f'Cannot compare a `Node` and {other.__class__!r}.')
@@ -37,7 +38,7 @@ class Node(str):
         if isinstance(value, Node):
             return value
 
-        url = urlparse(value)
+        url = urlparse(value.rstrip('/'))
         if not url.hostname:
             raise ValueError('Node URL does not contain the host name.')
 

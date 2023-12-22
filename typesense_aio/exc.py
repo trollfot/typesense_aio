@@ -51,6 +51,7 @@ class InvalidParameter(TypesenseClientError):
 
 service_exceptions = (
     httpx.RequestError,
+    httpx.ConnectTimeout,
     HTTPStatus0Error,
     ServerError,
     ServiceUnavailable
