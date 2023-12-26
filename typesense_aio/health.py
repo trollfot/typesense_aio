@@ -1,5 +1,3 @@
-import httpx
-from asyncio import sleep
 from .requester import Requester
 
 
