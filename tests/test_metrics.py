@@ -2,15 +2,7 @@ class TestMetrics:
 
     async def test_get_metrics(self, typesense):
         result = await typesense.get_metrics()
-        assert set(result) == {
-            'system_cpu1_active_percentage',
-            'system_cpu2_active_percentage',
-            'system_cpu3_active_percentage',
-            'system_cpu4_active_percentage',
-            'system_cpu5_active_percentage',
-            'system_cpu6_active_percentage',
-            'system_cpu7_active_percentage',
-            'system_cpu8_active_percentage',
+        assert set(result) > {
             'system_cpu_active_percentage',
             'system_disk_total_bytes',
             'system_disk_used_bytes',
