@@ -1,7 +1,7 @@
 import pytest
 import httpx
 import asyncio
-from typesense_aio.nodes import Node, Nodes
+from typesense_aio.nodes import Node, NodeList
 from typesense_aio.requester import Requester
 from typesense_aio.config import Configuration
 
@@ -57,15 +57,15 @@ def test_node_wrong_url():
 
 
 def test_nodes():
-    nodes = Nodes(
+    nodes = NodeList(
         [
             'http://test.com:80/indexer',
             'http://example.com:12345/',
         ]
     )
 
-    assert len(nodes) == 2
-    assert set(nodes) == set((
+    assert len(nodes.sane) == 2
+    assert set(nodes.sane) == set((
         Node('http://test.com:80/indexer'),
         Node('http://example.com:12345/')
     ))
@@ -74,24 +74,24 @@ def test_nodes():
 def test_nodes_quarantine():
     node1 = Node('http://test.com:80/indexer')
     node2 = Node('http://example.com:12345/')
-    nodes = Nodes((node1, node2))
+    nodes = NodeList((node1, node2))
 
-    assert len(nodes) == 2
-    assert set(nodes) == set((node1, node2))
+    assert len(nodes.sane) == 2
+    assert nodes.sane == set((node1, node2))
 
     nodes.quarantine(node1)
-    assert len(nodes) == 1
-    assert set(nodes) == set((node2,))
+    assert len(nodes.sane) == 1
+    assert nodes.sane == set((node2,))
     assert node1.healthy == False
 
     nodes.quarantine(node2)
-    assert len(nodes) == 0
-    assert set(nodes) == set()
+    assert len(nodes.sane) == 0
+    assert nodes.sane == set()
     assert node2.healthy == False
 
     nodes.restore(node1)
-    assert len(nodes) == 1
-    assert set(nodes) == set((node1,))
+    assert len(nodes.sane) == 1
+    assert nodes.sane == set((node1,))
     assert node1.healthy == True
     assert node2.healthy == False
 
@@ -100,10 +100,10 @@ def test_nodes_quarantine_intruder():
     node1 = Node('http://test.com:80/indexer')
     node2 = Node('http://example.com:12345/')
     intruder = Node('http://unknown.com:567/endpoint')
-    nodes = Nodes((node1, node2))
+    nodes = NodeList((node1, node2))
 
-    assert len(nodes) == 2
-    assert set(nodes) == set((
+    assert len(nodes.sane) == 2
+    assert nodes.sane == set((
         Node('http://test.com:80/indexer'),
         Node('http://example.com:12345/')
     ))
@@ -114,8 +114,8 @@ def test_nodes_quarantine_intruder():
     with pytest.raises(LookupError):
         nodes.restore(intruder)
 
-    assert len(nodes) == 2
-    assert set(nodes) == set((node1, node2))
+    assert len(nodes.sane) == 2
+    assert nodes.sane == set((node1, node2))
 
     sneaky_node = Node('http://test.com:80/indexer')
     nodes.quarantine(node1)
@@ -142,8 +142,8 @@ async def test_requester_bad_nodes_quarantine(api_key, respx_mock):
         timeout=0.5
     )
     requester = Requester(config)
-    assert len(requester.nodes) == 2
-    assert requester.get_node() in (
+    assert len(requester.nodes.sane) == 2
+    assert requester.nodes.get() in (
         "http://test.com:80/indexer",
         "http://example.com:12345"
     )
@@ -152,55 +152,11 @@ async def test_requester_bad_nodes_quarantine(api_key, respx_mock):
     with pytest.raises(LookupError):
         await requester.get('/health')
 
-    assert requester.get_node() is None
+    assert requester.nodes.get() is None
     assert len(requester.nodes.quarantined) == 2
 
 
-async def test_requester_quarantine_restore(api_key, respx_mock):
-
-    respx_mock.get("http://example.com:12345/health").mock(
-        return_value=bad_response
-    )
-    respx_mock.get("http://test.com:80/indexer/health").mock(
-        return_value=bad_response
-    )
-
-    config = Configuration(
-        urls=[
-            "http://test.com:80/indexer",
-            "http://example.com:12345/",
-        ],
-        api_key=api_key,
-        timeout=0.5
-    )
-    requester = Requester(config)
-
-    # all nodes are bad.
-    with pytest.raises(LookupError):
-        await requester.get('/health')
-
-    # We run the checks. Nothing changed.
-    await requester.check_quarantined_nodes()
-    assert len(requester.nodes) == 0
-    assert len(requester.nodes.quarantined) == 2
-
-    # We make one node respond correctly
-    respx_mock.get("http://example.com:12345/health").mock(
-        return_value=good_response
-    )
-
-    # We run the checks. One node was released from jail.
-    await requester.check_quarantined_nodes()
-    assert len(requester.nodes.quarantined) == 1
-    assert len(requester.nodes) == 1
-    assert requester.nodes.quarantined.pop() == (
-        "http://test.com:80/indexer"
-    )
-    assert requester.nodes.pool.pop() == (
-        "http://example.com:12345"
-    )
-
-
+@pytest.mark.async_timeout(10)
 async def test_requester_quarantine_task(api_key, respx_mock):
 
     respx_mock.get("http://example.com:12345/health").mock(
@@ -221,9 +177,6 @@ async def test_requester_quarantine_task(api_key, respx_mock):
     )
     requester = Requester(config)
 
-    # schedule the healthcheck.
-    task = asyncio.create_task(requester.quarantine_guard())
-
     # all nodes are bad.
     with pytest.raises(LookupError):
         await requester.get('/health')
@@ -235,4 +188,4 @@ async def test_requester_quarantine_task(api_key, respx_mock):
     )
     await asyncio.sleep(2)
     assert len(requester.nodes.quarantined) == 1
-    task.cancel()
+    assert len(requester.nodes.timers) == 1

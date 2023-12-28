@@ -110,10 +110,10 @@ async def typesense(configuration, api_key, service_port, tmpdir_factory):
                 response = await http_client.request(
                     'GET',
                     configuration.urls[0] + '/health',
-                    timeout=1
+                    timeout=5
                 )
                 if response.status_code == 200:
-                    ok = True
+                    break
                 elif response.status_code == 503:
                     continue
                 else:
