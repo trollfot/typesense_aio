@@ -6,7 +6,6 @@ from .debug import Debug
 from .health import Health
 from .keys import Keys
 from .multisearch import MultiSearch
-from .nodes import Nodes
 from .operations import Operations
 from .requester import Requester
 
