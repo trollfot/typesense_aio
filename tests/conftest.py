@@ -83,7 +83,7 @@ def server_cert(tmpdir_factory):
 @pytest.fixture(scope="session")
 def httpserver_ssl_context(server_cert):
     cert, key = server_cert
-    server_context = ssl.SSLContext()
+    server_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
     server_context.load_cert_chain(cert, keyfile=key)
     return server_context
 
@@ -171,7 +171,7 @@ def configuration(api_key, service_port):
     )
 
 
-@pytest.fixture(scope="class")
+@pytest.fixture(scope="session")
 async def typesense(configuration, api_key, service_port, tmpdir_factory):
     try:
         datadir = tmpdir_factory.mktemp("data")

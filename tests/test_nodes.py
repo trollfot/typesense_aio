@@ -188,7 +188,7 @@ async def test_requester_quarantine_task(api_key, respx_mock):
 
 async def test_requester_verify_https(api_key, httpserver, server_cert):
     cert, key = server_cert
-    sslcontext = ssl.SSLContext()
+    sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     sslcontext.load_verify_locations(cafile=cert)
     sslcontext.verify_mode = ssl.CERT_REQUIRED
 
@@ -207,7 +207,7 @@ async def test_requester_verify_https(api_key, httpserver, server_cert):
 
 
 async def test_requester_unverified_https(api_key, httpserver):
-    sslcontext = ssl.SSLContext()
+    sslcontext = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
     sslcontext.verify_mode = ssl.CERT_REQUIRED
 
     node = Node(httpserver.url_for('/'), verify=sslcontext)
