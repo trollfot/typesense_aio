@@ -1,6 +1,7 @@
 import pytest
 import httpx
 import asyncio
+import ssl
 from typesense_aio.nodes import Node, NodeList
 from typesense_aio.requester import Requester
 from typesense_aio.config import Configuration
@@ -15,28 +16,27 @@ good_response = httpx.Response(
 
 
 def test_node_repr():
-    node = Node('http://test.com:80/indexer')
-    assert repr(node) == "<Node 'http://test.com:80/indexer' status=OK>"
+    node1 = Node('http://test.com:80/indexer')
+    assert repr(node1) == "<Node 'http://test.com:80/indexer'>"
 
-    node.healthy = False
-    assert repr(node) == "<Node 'http://test.com:80/indexer' status=KO>"
+    node2 = Node('http://test.com:80/indexer///')
+    assert repr(node2) == "<Node 'http://test.com:80/indexer'>"
 
 
 def test_node_equality():
     node = Node('http://test.com:80/indexer')
     assert node == 'http://test.com:80/indexer'
-    assert node.healthy == True
-    assert node.url.scheme == 'http'
 
     node2 = Node(node)
     assert node2 is node
 
     node3 = Node('http://test.com:80/indexer')
     assert node == node3
-
-    node3.healthy = False  # Node health does play a big part in equality
-    assert node != node3
     assert node is not node3
+
+    node4 = Node('http://test.com:80/indexer///')
+    assert node == node4
+    assert node is not node4
 
 
 def test_node_wrong_url():
@@ -82,21 +82,17 @@ def test_nodes_quarantine():
     nodes.quarantine(node1)
     assert len(nodes.sane) == 1
     assert nodes.sane == set((node2,))
-    assert node1.healthy == False
 
     nodes.quarantine(node2)
     assert len(nodes.sane) == 0
     assert nodes.sane == set()
-    assert node2.healthy == False
 
     nodes.restore(node1)
     assert len(nodes.sane) == 1
     assert nodes.sane == set((node1,))
-    assert node1.healthy == True
-    assert node2.healthy == False
 
 
-def test_nodes_quarantine_intruder():
+def test_nodes_quarantine_equal():
     node1 = Node('http://test.com:80/indexer')
     node2 = Node('http://example.com:12345/')
     intruder = Node('http://unknown.com:567/endpoint')
@@ -117,11 +113,10 @@ def test_nodes_quarantine_intruder():
     assert len(nodes.sane) == 2
     assert nodes.sane == set((node1, node2))
 
-    sneaky_node = Node('http://test.com:80/indexer')
+    equal_node = Node('http://test.com:80/indexer')
     nodes.quarantine(node1)
 
-    with pytest.raises(LookupError):
-        nodes.restore(sneaky_node)
+    assert len(nodes.sane) == 1
 
 
 async def test_requester_bad_nodes_quarantine(api_key, respx_mock):
@@ -189,3 +184,42 @@ async def test_requester_quarantine_task(api_key, respx_mock):
     await asyncio.sleep(2)
     assert len(requester.nodes.quarantined) == 1
     assert len(requester.nodes.timers) == 1
+
+
+async def test_requester_verify_https(api_key, httpserver, server_cert):
+    cert, key = server_cert
+    sslcontext = ssl.SSLContext()
+    sslcontext.load_verify_locations(cafile=cert)
+    sslcontext.verify_mode = ssl.CERT_REQUIRED
+
+    node = Node(httpserver.url_for('/'), verify=sslcontext)
+    config = Configuration(
+        urls=[node],
+        api_key=api_key,
+        timeout=0.5,
+        healthcheck_interval=1
+    )
+    requester = Requester(config)
+    httpserver.expect_request('/health', method="GET").respond_with_json(
+        {"ok": True}
+    )
+    await requester.get('/health')
+
+
+async def test_requester_unverified_https(api_key, httpserver):
+    sslcontext = ssl.SSLContext()
+    sslcontext.verify_mode = ssl.CERT_REQUIRED
+
+    node = Node(httpserver.url_for('/'), verify=sslcontext)
+    config = Configuration(
+        urls=[node],
+        api_key=api_key,
+        timeout=0.5,
+        healthcheck_interval=1
+    )
+    requester = Requester(config)
+    httpserver.expect_request('/health', method="GET").respond_with_json(
+        {"ok": True}
+    )
+    with pytest.raises(ssl.SSLCertVerificationError):
+        await requester.get('/health')

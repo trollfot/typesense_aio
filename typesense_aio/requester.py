@@ -57,7 +57,7 @@ class Requester(BaseRequester):
 
         http_client: httpx.AsyncClient
         try:
-            async with httpx.AsyncClient() as http_client:
+            async with httpx.AsyncClient(verify=node.verify) as http_client:
                 response: httpx.Response = await http_client.request(
                     method,
                     url,
