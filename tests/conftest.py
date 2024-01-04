@@ -5,7 +5,6 @@ import pytest
 import docker
 import httpx
 import os
-import trustme
 from contextlib import closing
 from docker.models.containers import Container
 from typesense_aio.client import Client
