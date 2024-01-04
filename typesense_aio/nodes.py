@@ -1,5 +1,7 @@
+import ssl
 import asyncio
 import httpx
+from pathlib import Path
 from time import time
 from urllib.parse import urlparse, ParseResult
 from typing import Iterable, Union, MutableSet, Dict
@@ -9,16 +11,16 @@ from .config import Configuration
 
 class Node(str):
 
-    url: ParseResult
-    healthy: bool = True
+    url: str
+    verify: bool | ssl.SSLContext | Path
 
     def __eq__(self, other: Union['Node', str]):
         if isinstance(other, Node):
-            return (self.url == other.url and self.healthy == other.healthy)
+            return super().__eq__(other)
 
         if isinstance(other, str):
             url = urlparse(other.rstrip('/'))
-            return self.url == url
+            return super().__eq__(url)
 
         raise NotImplementedError(
             f'Cannot compare a `Node` and {other.__class__!r}.')
@@ -26,17 +28,15 @@ class Node(str):
     def __ne__(self, other: Union['Node', str]):
         return not self.__eq__(other)
 
-    def __bool__(self):
-        return self.healthy
-
-    def __hash__(self):
-        return hash(self.url)
-
     def __repr__(self):
         url = super().__repr__()
-        return f'<Node {url} status={self.healthy and "OK" or "KO"}>'
+        return f'<Node {url}>'
 
-    def __new__(cls, value: Union[str, 'Node']):
+    def __hash__(self):
+        return hash(str(self))
+
+    def __new__(cls, value: Union[str, 'Node'],
+                verify: bool | ssl.SSLContext | Path = False):
         # idempotency
         if isinstance(value, Node):
             return value
@@ -53,8 +53,7 @@ class Node(str):
 
         inst = super().__new__(
             cls, f'{url.scheme}://{url.hostname}:{url.port}{url.path}')
-        inst.url = url
-        inst.healthy = True
+        inst.verify = verify
         return inst
 
 
@@ -82,7 +81,7 @@ class NodeList(NodePolicy):
     async def check_health(self, node) -> bool:
         url = f'{node}/health'
         try:
-            async with httpx.AsyncClient() as http_client:
+            async with httpx.AsyncClient(verify=node.verify) as http_client:
                 response: httpx.Response = await http_client.request(
                     'GET', url, timeout=3.0
                 )
@@ -91,8 +90,7 @@ class NodeList(NodePolicy):
         else:
             if response.status_code == 200:
                 if response.json() == {"ok": True}:
-                    if node.healthy is False:
-                        return True
+                    return True
         return False
 
     async def health_task(self, node: Node, timer: float) -> None:
@@ -110,7 +108,6 @@ class NodeList(NodePolicy):
 
     def quarantine(self, node: Node) -> None:
         if node in self.sane:
-            node.healthy = False
             self.sane.discard(node)
             self.quarantined.add(node)
         elif node in self.quarantined:
@@ -136,6 +133,5 @@ class NodeList(NodePolicy):
             self.timers[node].cancel()
             del self.timers[node]
 
-        node.healthy = True
         self.quarantined.discard(node)
         self.sane.add(node)
